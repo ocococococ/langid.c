@@ -45,10 +45,48 @@ Python program `ldpy2ldc.py` can convert a model produced by langid.py [2] into
 the protocol-buffer format, and also the C source format used to compile an
 in-built model directly into executable.
 
+Shell version
+-------------
+`langid.sh` is a port of the `langid` tool to POSIX sh + awk + od, for
+systems without a C compiler. It takes the same options (`-l`, `-b`,
+`-m MODEL`, interactive mode on a terminal) and gives the same answers, but is
+roughly 100x slower, so it suits occasional use rather than large batches.
+
+    echo "Bonjour tout le monde" | ./langid.sh       # fr,22
+    ./langid.sh -l < sample.txt
+
+On first use it converts the in-built model (model.c) into a text model,
+ldpy.tmodel (a few seconds, one-time). Other langid.py models can be used with
+`-m` after exporting them with `make acquis.tmodel` (needs Python) or
+converting a model.c with `./langid.sh --convert model.c out.tmodel`.
+Set `AWK=mawk` or `AWK=gawk` to use a faster awk.
+
 Dependencies
 ------------
 Protocol buffers [4]
 protobuf-c [5]
+CMake >= 3.16 (optional, for the CMake build)
+Python 3 (or 2.7) with `langid` and `numpy`, only needed to regenerate models
+
+Building
+--------
+
+    ./build.sh                  # configure + build with CMake, copies ./langid
+    ./build.sh --regen-model    # regenerate model.c/model.h from ldpy.model
+    ./build.sh --model my.model # compile in a different langid.py model
+    ./build.sh --python         # also build the _langid Python 3 extension
+    ./build.sh --debug          # debug build with -DDEBUG output
+
+Or with CMake directly:
+
+    cmake -S . -B build && cmake --build build
+
+The plain Makefile still works (`make`, `make PYTHON=python2`), and the
+Python extension can also be built with `python3 setup.py build_ext --inplace`.
+
+To produce a protocol-buffer model loadable at run time with `langid -m`:
+
+    make ldpy.pmodel
 
 Contact
 -------

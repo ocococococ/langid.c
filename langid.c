@@ -112,6 +112,7 @@ int main(int argc, char **argv){
          * presumably. Anything that returns data should be fair game.*/
         if ((fd = open(path, O_RDONLY))==-1) {
           lang = no_file;
+          textlen = 0;
         }
         else {
           textlen = lseek(fd, 0, SEEK_END);
@@ -132,8 +133,25 @@ int main(int argc, char **argv){
     }
     else { /*file mode*/
 
-      /* read all of stdin and process as a single file */
-      textlen = getdelim(&text, &text_size, EOF, stdin);
+      /* read all of stdin and process as a single file. fread is used
+       * rather than getdelim, which would stop at the first 0xFF byte (EOF
+       * converted to a char) and returns -1 on empty input. */
+      size_t nread;
+
+      textlen = 0;
+      if ((text = (char *) malloc(text_size)) == NULL) exit(-1);
+      while ((nread = fread(text + textlen, 1, text_size - textlen, stdin)) > 0) {
+        textlen += nread;
+        if ((size_t) textlen == text_size) {
+          text_size *= 2;
+          if ((text = (char *) realloc(text, text_size)) == NULL) exit(-1);
+        }
+      }
+      if (ferror(stdin)) {
+        fprintf(stderr, "error reading from stdin\n");
+        exit(-1);
+      }
+
       lang = identify(lid, text, textlen);
       printf("%s,%zd\n", lang, textlen);
       free(text);
