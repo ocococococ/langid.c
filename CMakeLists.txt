@@ -12,6 +12,7 @@ set(LANGID_MODEL "${CMAKE_CURRENT_SOURCE_DIR}/ldpy.model" CACHE FILEPATH
   "langid.py model to compile into the library when LANGID_REGENERATE_MODEL=ON")
 option(LANGID_BUILD_PYTHON "Build the _langid Python 3 extension module" OFF)
 option(LANGID_DEBUG "Enable liblangid debug output (-DDEBUG)" OFF)
+option(LANGID_STATIC_PROTOBUF_C "Link protobuf-c statically (libprotobuf-c.a)" ON)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE MinSizeRel CACHE STRING "Build type" FORCE)
@@ -25,7 +26,24 @@ if(PKG_CONFIG_FOUND)
   pkg_check_modules(PROTOBUF_C QUIET IMPORTED_TARGET libprotobuf-c)
 endif()
 
-if(PROTOBUF_C_FOUND)
+if(LANGID_STATIC_PROTOBUF_C)
+  # Look only for the static archive, using pkg-config's paths as hints.
+  find_path(PROTOBUF_C_INCLUDE_DIR protobuf-c/protobuf-c.h
+    HINTS ${PROTOBUF_C_INCLUDE_DIRS})
+  find_library(PROTOBUF_C_STATIC_LIBRARY
+    NAMES ${CMAKE_STATIC_LIBRARY_PREFIX}protobuf-c${CMAKE_STATIC_LIBRARY_SUFFIX}
+    HINTS ${PROTOBUF_C_LIBRARY_DIRS})
+  if(NOT PROTOBUF_C_INCLUDE_DIR OR NOT PROTOBUF_C_STATIC_LIBRARY)
+    message(FATAL_ERROR "Static protobuf-c library not found. Install it, or configure "
+                        "with -DLANGID_STATIC_PROTOBUF_C=OFF to link it dynamically.")
+  endif()
+  add_library(langid_protobuf_c STATIC IMPORTED)
+  set_target_properties(langid_protobuf_c PROPERTIES
+    IMPORTED_LOCATION "${PROTOBUF_C_STATIC_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${PROTOBUF_C_INCLUDE_DIR}")
+  set(LANGID_PROTOBUF_C_TARGET langid_protobuf_c)
+  message(STATUS "Linking protobuf-c statically: ${PROTOBUF_C_STATIC_LIBRARY}")
+elseif(PROTOBUF_C_FOUND)
   set(LANGID_PROTOBUF_C_TARGET PkgConfig::PROTOBUF_C)
 else()
   find_path(PROTOBUF_C_INCLUDE_DIR protobuf-c/protobuf-c.h)
